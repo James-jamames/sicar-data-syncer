@@ -1,8 +1,10 @@
 services:
+
   sicar-downloader:
     build:
       context: .
       dockerfile: docker/Dockerfile
     command: uv run python -m src.main
     volumes:
-      - ./data:/data
+      - /app/.venv
+      - ./data:/app/data
