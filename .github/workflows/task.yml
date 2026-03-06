@@ -32,22 +32,22 @@ jobs:
       - name: Build Docker
         run: |
           docker build \
-          -t lapig/$APPLICATION_NAME:${DOCKER_PATH}_${LAST_COMMIT_HASH} \
-          -t lapig/$APPLICATION_NAME:${DOCKER_PATH}_latest  \
-          -f docker/$DOCKER_PATH/Dockerfile . --no-cache
+          -t lapig/$APPLICATION_NAME:${LAST_COMMIT_HASH} \
+          -t lapig/$APPLICATION_NAME:latest \
+          -f docker/Dockerfile . --no-cache
 
       - name: Login to Docker Registry
         run: echo "${{ secrets.DOCKERHUB_PASS }}" | docker login -u "lapig" --password-stdin
 
       - name: Push Image to Registry
         run: |
-          docker push lapig/$APPLICATION_NAME:${DOCKER_PATH}_${LAST_COMMIT_HASH}
-          docker push lapig/$APPLICATION_NAME:${DOCKER_PATH}_latest
+          docker push lapig/$APPLICATION_NAME:${LAST_COMMIT_HASH}
+          docker push lapig/$APPLICATION_NAME:latest
 
       - name: Remove image locally
         run: |
-          docker rmi lapig/$APPLICATION_NAME:${DOCKER_PATH}_${LAST_COMMIT_HASH}
-          docker rmi lapig/$APPLICATION_NAME:${DOCKER_PATH}_latest
+          docker rmi lapig/$APPLICATION_NAME:${LAST_COMMIT_HASH}
+          docker rmi lapig/$APPLICATION_NAME:latest
 
   deploy:
     needs: build
