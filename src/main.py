@@ -43,7 +43,7 @@ def task(scheduler):
             zips_to_parquet(
                 input_folder=tmp_folder, 
                 output_path=str(output_path), 
-                output_filename='car-br-dataset.parquet'
+                output_foldername='car-br-dataset'
             )
             
             logger.info("✅ Tarefa concluída com sucesso! O diretório temporário será limpo automaticamente.")

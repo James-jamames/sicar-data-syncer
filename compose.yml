@@ -1,5 +1,4 @@
 services:
-
   sicar-downloader:
     build:
       context: .
@@ -8,3 +7,9 @@ services:
     volumes:
       - /app/.venv
       - ./data:/app/data
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
