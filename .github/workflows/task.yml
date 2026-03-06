@@ -1,0 +1,68 @@
+name: Build and Deploy in SICAR Data Syncer
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      APPLICATION_NAME: ${{ steps.creat_env.outputs.APPLICATION_NAME }}
+      DOCKER_PATH: ${{ steps.creat_env.outputs.DOCKER_PATH }}
+      LAST_COMMIT_HASH: ${{ steps.creat_env.outputs.LAST_COMMIT_HASH }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Define environment variables
+        id: creat_env
+        run: |
+          set_var() {
+            echo "$1=$2" >> $GITHUB_ENV
+            echo "$1=$2" >> $GITHUB_OUTPUT
+          }
+
+          set_var "DOCKER_PATH" "task"
+          set_var "APPLICATION_NAME" "${{ github.event.repository.name }}"
+          set_var "LAST_COMMIT_HASH" "$(git log --pretty=format:%h -n 1)"
+        
+      - name: Build Docker
+        run: |
+          docker build \
+          -t lapig/$APPLICATION_NAME:${DOCKER_PATH}_${LAST_COMMIT_HASH} \
+          -t lapig/$APPLICATION_NAME:${DOCKER_PATH}_latest  \
+          -f docker/$DOCKER_PATH/Dockerfile . --no-cache
+
+      - name: Login to Docker Registry
+        run: echo "${{ secrets.DOCKERHUB_PASS }}" | docker login -u "lapig" --password-stdin
+
+      - name: Push Image to Registry
+        run: |
+          docker push lapig/$APPLICATION_NAME:${DOCKER_PATH}_${LAST_COMMIT_HASH}
+          docker push lapig/$APPLICATION_NAME:${DOCKER_PATH}_latest
+
+      - name: Remove image locally
+        run: |
+          docker rmi lapig/$APPLICATION_NAME:${DOCKER_PATH}_${LAST_COMMIT_HASH}
+          docker rmi lapig/$APPLICATION_NAME:${DOCKER_PATH}_latest
+
+  deploy:
+    needs: build
+    runs-on: vm3-github-runner
+     
+    steps:
+      - name: Restart Application
+        run: |
+          caretaker ${{ needs.build.outputs.APPLICATION_NAME }}  ${{ needs.build.outputs.DOCKER_PATH }} \
+            --title="SICAR Data Syncer" \
+            --commit=${{ needs.build.outputs.LAST_COMMIT_HASH }} \
+            --repo=${{ github.repository }}                                              
+
+      - name: Verify deployment
+        run: |
+          echo "Deployment completed successfully"
+          echo "Application: ${{ needs.build.outputs.APPLICATION_NAME }}"
+          echo "Version: ${{ needs.build.outputs.DOCKER_PATH }}_${{ needs.build.outputs.LAST_COMMIT_HASH }}"
