@@ -55,6 +55,56 @@ def zips_to_parquet(input_folder: str, output_path: str, output_foldername: str)
     logging.info(f"🚀 Pipeline finalizado! Dataset particionado criado em: {final_output_dir}")
 
 
+def zips_to_parquet(input_folder: str, output_path: str, output_foldername: str):
+    """
+    Lê arquivos ZIP contendo shapefiles, padroniza o CRS (EPSG:4674), 
+    adiciona colunas de bounding box para otimização no DuckDB e salva 
+    cada um como um arquivo GeoParquet independente.
+    """
+    input_dir = Path(input_folder)
+    
+    final_output_dir = Path(output_path) / output_foldername
+    final_output_dir.mkdir(parents=True, exist_ok=True)
+    
+    zip_files = list(input_dir.glob("*.zip"))
+    
+    if not zip_files:
+        logging.error("Nenhum arquivo .zip encontrado na pasta de entrada.")
+        raise FileNotFoundError(f"Nenhum arquivo .zip encontrado em: {input_folder}")
+    
+    logging.info(f"Iniciando processamento de {len(zip_files)} arquivos. O dataset será salvo em: {final_output_dir}")
+    
+    for zip_path in zip_files:
+        try:
+            temp_gdf = gpd.read_file(f"zip://{zip_path}", engine='pyogrio')
+            
+            if temp_gdf.crs is None:
+                temp_gdf.set_crs(epsg=4674, inplace=True)
+            elif temp_gdf.crs.to_epsg() != 4674:
+                temp_gdf = temp_gdf.to_crs(epsg=4674)
+
+            bounds = temp_gdf.geometry.bounds
+            temp_gdf['min_x'] = bounds['minx']
+            temp_gdf['min_y'] = bounds['miny']
+            temp_gdf['max_x'] = bounds['maxx']
+            temp_gdf['max_y'] = bounds['maxy']
+
+            parquet_filename = zip_path.with_suffix('.parquet').name
+            parquet_filepath = final_output_dir / parquet_filename
+            
+            temp_gdf.to_parquet(parquet_filepath, write_covering_bbox=True)
+            logging.info(f"✅ Sucesso: {zip_path.name} convertido para {parquet_filename}")
+            
+            del temp_gdf
+            gc.collect() 
+            
+        except Exception as e:
+            logging.error(f"❌ Erro ao processar {zip_path.name}: {e}")
+
+    logging.info(f"🚀 Pipeline finalizado! Dataset particionado criado em: {final_output_dir}")
+
+
+
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO,
